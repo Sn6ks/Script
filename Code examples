@@ -1,0 +1,327 @@
+Some code examples;
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local DropBallsEvent = ReplicatedStorage:WaitForChild("DropBallsEvent")
+local BallTemplate = ReplicatedStorage:WaitForChild("Ball") -- Ensure this is a Template or Model
+
+local GAMEPASS_ID = 911818871 -- Replace with your actual gamepass ID
+
+-- Define multipliers and weights
+local multipliers = {
+	["MultiplierPart1"] = 0.2,
+	["MultiplierPart2"] = 0.2,
+	["MultiplierPart3"] = 0.2,
+	["MultiplierPart4"] = 0.2,
+	["MultiplierPart5"] = 0.2,
+	["MultiplierPart6"] = 0.3,
+	["MultiplierPart7"] = 0.3,
+	["MultiplierPart8"] = 2.0,
+	["MultiplierPart9"] = 2.0,
+	["MultiplierPart10"] = 3.0,
+	["MultiplierPart11"] = 3.0,
+	["MultiplierPart12"] = 4.0,
+	["MultiplierPart13"] = 4.0,
+	["MultiplierPart14"] = 7.0,
+	["MultiplierPart15"] = 7.0,
+	["MultiplierPart16"] = 10.0,
+	["MultiplierPart17"] = 10.0
+}
+
+local weights = {
+	["MultiplierPart1"] = 45,
+	["MultiplierPart2"] = 45,
+	["MultiplierPart3"] = 45,
+	["MultiplierPart4"] = 45,
+	["MultiplierPart5"] = 45,
+	["MultiplierPart6"] = 5,
+	["MultiplierPart7"] = 5,
+	["MultiplierPart8"] = 3,
+	["MultiplierPart9"] = 3,
+	["MultiplierPart10"] = 2,
+	["MultiplierPart11"] = 2,
+	["MultiplierPart12"] = 0.5,
+	["MultiplierPart13"] = 0.5,
+	["MultiplierPart14"] = 0.5,
+	["MultiplierPart15"] = 0.5,
+	["MultiplierPart16"] = 0.25,
+	["MultiplierPart17"] = 0.25
+}
+
+local function getWeightedMultiplierPart()
+	local totalWeight = 0
+	for _, weight in pairs(weights) do
+		totalWeight = totalWeight + weight
+	end
+
+	local randomWeight = math.random() * totalWeight
+	local cumulativeWeight = 0
+	for partName, weight in pairs(weights) do
+		cumulativeWeight = cumulativeWeight + weight
+		if randomWeight <= cumulativeWeight then
+			return partName
+		end
+	end
+	return nil
+end
+
+DropBallsEvent.OnServerEvent:Connect(function(player, amount)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local bucks = leaderstats:FindFirstChild("Bucks")
+		if bucks then
+			if bucks.Value >= amount then
+				bucks.Value = bucks.Value - amount
+
+				local ownsGamepass = false
+				local success, result = pcall(function()
+					return MarketplaceService:UserOwnsGamePassAsync(player.UserId, GAMEPASS_ID)
+				end)
+				if success then
+					ownsGamepass = result
+				else
+					warn("Error checking gamepass ownership: " .. tostring(result))
+				end
+
+				local ball = BallTemplate:Clone()
+				ball.Parent = workspace
+
+				local ballNetworkOwner = Instance.new("ObjectValue")
+				ballNetworkOwner.Name = "creator"
+				ballNetworkOwner.Value = player
+				ballNetworkOwner.Parent = ball
+
+				local spawnPosition = Vector3.new(20, 44.31, 1.25)
+				ball.Position = spawnPosition
+
+				local bodyVelocity = Instance.new("BodyVelocity")
+				bodyVelocity.Velocity = Vector3.new(math.random(-10, 10), -50, math.random(-10, 10))
+				bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+				bodyVelocity.Parent = ball
+
+				local bodyGyro = Instance.new("BodyGyro")
+				bodyGyro.CFrame = CFrame.new(ball.Position, Vector3.new(0, 0, 0))
+				bodyGyro.P = 3000
+				bodyGyro.Parent = ball
+
+				local function onTouched(hit)
+					local partName = hit.Name
+					local multiplier = multipliers[partName]
+					if multiplier then
+						local baseValue = amount
+						local finalMultiplier = ownsGamepass and multiplier * 2 or multiplier
+						local result = baseValue * finalMultiplier
+						bucks.Value = bucks.Value + result
+
+						-- Move the part down by 0.1 studs
+						hit.Position = hit.Position - Vector3.new(0, 0.1, 0)
+
+						-- Wait for 0.5 seconds and then move the part back up to the original height of 2.046
+						task.delay(0.2, function()
+							if hit and hit:IsA("BasePart") then
+								hit.Position = Vector3.new(hit.Position.X, 2.046, hit.Position.Z)
+							end
+						end)
+
+						ball:Destroy()
+					end
+				end
+
+				ball.Touched:Connect(onTouched)
+			end
+		end
+	end
+end)
+
+
+SECOND CODE EXAMPLE:
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+local RebirthEvent = Instance.new("RemoteEvent")
+RebirthEvent.Name = "RebirthEvent"
+RebirthEvent.Parent = ReplicatedStorage
+
+local rebirthDataStore = DataStoreService:GetDataStore("RebirthDataStore")
+
+local function onRebirthRequested(player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local bucks = leaderstats:FindFirstChild("Bucks")
+		local rebirths = leaderstats:FindFirstChild("Rebirths")
+
+		if bucks and rebirths then
+			if bucks.Value >= 1000000000000 then  -- Check if the player has 1 trillion Bucks
+				bucks.Value = 100  -- Set Bucks to 0
+				rebirths.Value = rebirths.Value + 1  -- Increment rebirth count
+
+				-- Save rebirth count to DataStore
+				local success, errorMessage = pcall(function()
+					rebirthDataStore:SetAsync(tostring(player.UserId), rebirths.Value)
+				end)
+				if success then
+					print(player.Name .. " has rebirthed successfully! Total Rebirths: " .. rebirths.Value)
+				else
+					warn("Error saving rebirth data for " .. player.Name .. ": " .. errorMessage)
+				end
+			else
+				print(player.Name .. " does not have enough Bucks! Required: 1 trillion, Current: " .. bucks.Value)
+			end
+		else
+			print("Error: Missing Bucks or Rebirths stat for player: " .. player.Name)
+		end
+	else
+		print("Error: No leaderstats found for player: " .. player.Name)
+	end
+end
+
+RebirthEvent.OnServerEvent:Connect(onRebirthRequested)
+
+local function onPlayerAdded(player)
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
+
+	local bucks = Instance.new("IntValue")
+	bucks.Name = "Bucks"
+	bucks.Value = 100  -- Initialize with starting Bucks
+	bucks.Parent = leaderstats
+
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "Rebirths"
+
+	-- Load rebirth count from DataStore
+	local success, rebirthCount = pcall(function()
+		return rebirthDataStore:GetAsync(tostring(player.UserId))
+	end)
+
+	if success and rebirthCount then
+		rebirths.Value = rebirthCount
+	else
+		rebirths.Value = 0  -- Default to 0 if no data is found or an error occurs
+	end
+
+	rebirths.Parent = leaderstats
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+
+local function onPlayerRemoving(player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local rebirths = leaderstats:FindFirstChild("Rebirths")
+		if rebirths then
+			-- Save rebirth count to DataStore
+			local success, errorMessage = pcall(function()
+				rebirthDataStore:SetAsync(tostring(player.UserId), rebirths.Value)
+			end)
+			if not success then
+				warn("Error saving rebirth data for " .. player.Name .. ": " .. errorMessage)
+			end
+		end
+	end
+end
+
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+LAST CODE EXAMPLE;
+
+
+local Players = game:GetService("Players")
+local DataStoreService = game:GetService("DataStoreService")
+
+-- DataStore to save and load Bucks
+local bucksDataStore = DataStoreService:GetDataStore("BucksDataStore")
+
+-- Define the maximum Bucks limit
+local MAX_BUCKS = 1000000000000
+
+local function awardBucks()
+	for _, player in pairs(Players:GetPlayers()) do
+		local leaderstats = player:FindFirstChild("leaderstats")
+		if leaderstats then
+			local bucks = leaderstats:FindFirstChild("Bucks")
+			if bucks then
+				-- Check if adding Bucks would exceed the limit
+				if bucks.Value + 100 > MAX_BUCKS then
+					bucks.Value = MAX_BUCKS
+				else
+					bucks.Value = bucks.Value + 100
+				end
+
+				-- Save Bucks to DataStore
+				local success, errorMessage = pcall(function()
+					bucksDataStore:SetAsync(tostring(player.UserId), bucks.Value)
+				end)
+
+				if not success then
+					warn("Error saving Bucks data for " .. player.Name .. ": " .. errorMessage)
+				end
+			else
+				warn("No Bucks value found for player: " .. player.Name)
+			end
+		else
+			warn("No leaderstats found for player: " .. player.Name)
+		end
+	end
+end
+
+local function onPlayerAdded(player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local bucks = leaderstats:FindFirstChild("Bucks")
+
+		-- Load Bucks from DataStore
+		local success, bucksValue = pcall(function()
+			return bucksDataStore:GetAsync(tostring(player.UserId))
+		end)
+
+		if success then
+			if bucksValue then
+				-- Clamp the value to the maximum limit
+				bucks.Value = math.min(bucksValue, MAX_BUCKS)
+			else
+				bucks.Value = 100  -- Default to 100 if no data is found
+			end
+		else
+			bucks.Value = 100  -- Default to 100 if there was an error
+			warn("Error loading Bucks data for " .. player.Name .. ": " .. bucksValue)
+		end
+	else
+		warn("No leaderstats found for player: " .. player.Name)
+	end
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+
+local function onPlayerRemoving(player)
+	local leaderstats = player:FindFirstChild("leaderstats")
+	if leaderstats then
+		local bucks = leaderstats:FindFirstChild("Bucks")
+		if bucks then
+			-- Clamp the value to the maximum limit before saving
+			if bucks.Value > MAX_BUCKS then
+				bucks.Value = MAX_BUCKS
+			end
+
+			-- Save Bucks to DataStore
+			local success, errorMessage = pcall(function()
+				bucksDataStore:SetAsync(tostring(player.UserId), bucks.Value)
+			end)
+			if not success then
+				warn("Error saving Bucks data for " .. player.Name .. ": " .. errorMessage)
+			end
+		end
+	end
+end
+
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+-- Award Bucks every minute
+while true do
+	awardBucks()
+	wait(60)  -- Wait for 1 minute
+end
